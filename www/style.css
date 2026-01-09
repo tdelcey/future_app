@@ -1,0 +1,36 @@
+tags$head(tags$style(HTML("
+ .callout {
+                border-left-width: 5px;
+                border-left-style: solid;
+                padding: 12px 16px;
+                margin-bottom: 14px;
+                border-radius: 6px;
+            }
+
+            .callout-tip {
+                border-left-color: #2E7D32;
+                background-color: #F1F8F4;
+            }
+
+            .callout-note {
+                border-left-color: #0277BD;
+                background-color: #E3F2FD;
+            }
+
+            .callout-warning {
+                border-left-color: #F9A825;
+                background-color: #FFF8E1;
+            }
+
+            .callout-important {
+                border-left-color: #C62828;
+                background-color: #FDECEA;
+            }
+
+            .callout-title {
+                font-weight: 600;
+                margin-bottom: 6px;
+            }
+
+            "))
+)
