@@ -43,13 +43,8 @@ ui <- fluidPage(
 
     div(
       style = "font-size:32px; font-weight:700; margin-bottom:6px;",
-      "One sentence at a time"
+      "Thinking Tomorrow"
     ),
-
-    div(
-      style = "font-size:20px; color:#555; font-weight:400;",
-      "A quantitative history of rationality"
-    )
   ),
   modules_textual_network_ui("textnet")
 )

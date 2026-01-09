@@ -198,11 +198,11 @@ mod_cluster_tables_server <- function(
       }
       df <- top_refs %>%
         filter(cluster_id == cid) %>%
-        select(Nom, Annee, Revue_Abbrege, has_id, absolute_cluster_cit) %>%
+        select(name, year, journal_abbrev, has_id, absolute_cluster_cit) %>%
         rename(
-          title = Nom,
-          year = Annee,
-          journal = Revue_Abbrege,
+          title = name,
+          year = year,
+          journal = journal_abbrev,
           n_citations = absolute_cluster_cit
         ) %>%
         arrange(desc(n_citations))
