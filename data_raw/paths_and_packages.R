@@ -11,7 +11,7 @@ p_load(
 #original text path stored in google drive
 if (str_detect(getwd(), "goutsmed")) {
   if (str_detect(getwd(), "agoutsmedt")) {
-    data_path <- file.path(
+    ejhet_project <- file.path(
       path.expand("~"),
       "Nextcloud",
       "ejhet_project"
@@ -35,6 +35,14 @@ if (str_detect(getwd(), "goutsmed")) {
       "Research",
       "data",
       "elsevier"
+    )
+
+    future_project <- file.path(
+      path.expand("~"),
+      "Nextcloud",
+      "Research",
+      "data",
+      "model_futur"
     )
   } else {
     data_path <- file.path(path.expand("~"), "data", "ejhet_project")
