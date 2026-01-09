@@ -26,7 +26,6 @@ metadata <- read_feather(file.path(ejhet_project, "metadata_maintext.feather"))
 # ------------------------------------------------------------
 # 2. Merge metadata + nb sentences
 # ------------------------------------------------------------
-
 # nb_sentences <- read_feather(file.path(
 #   ejhet_project,
 #   "n_sentences_per_id_after_cleaning.feather"
@@ -35,8 +34,15 @@ metadata <- read_feather(file.path(ejhet_project, "metadata_maintext.feather"))
 # metadata <- metadata %>%
 #   filter(!is.na(year), !is.na(title)) %>%
 #   left_join(nb_sentences, by = "id")
+# setDT(metadata)
 
-setDT(metadata)
+metadata[,
+  url := if_else(
+    str_detect(id, "jstor"),
+    id,
+    str_c("https://www.doi.org/", doi)
+  )
+]
 
 # save cleaned metadata
 write_rds(metadata, here("data_raw", "metadata_articles.rds"))
@@ -49,6 +55,7 @@ sentences_dataset <- open_dataset(
   format = "feather"
 )
 
+# collect minimal data, convert to data.table and join metadata (metadata is already a data.table)
 sentences <- sentences_dataset %>%
   filter(between(year, 1900, 2009)) %>%
   select(
@@ -60,30 +67,45 @@ sentences <- sentences_dataset %>%
     backbone_community,
     sentence,
     similarity_rv,
-    embedding,
-    centroid
+    embedding
   ) %>%
-  collect() %>%
-  inner_join(metadata, by = "id") %>%
-  mutate(
-    # Cosine similarity of each sentence embedding to its cluster centroid
-    similarity_centroid = purrr::map2_dbl(
-      embedding,
-      centroid,
-      function(vec, ctr) {
-        num <- sum(vec * ctr)
-        denom <- sqrt(sum(vec * vec)) * sqrt(sum(ctr * ctr))
-        if (is.na(denom) || denom == 0) {
-          return(NA_real_)
-        }
-        num / denom
-      }
-    )
-  ) %>%
-  select(-centroid) %>% # centroid used for similarity only; drop to keep file size stable
-  arrange(id, sentence_id)
+  collect()
 
-setDT(sentences)
+setDT(sentences, key = "sentence_id")
+sentences <- merge(sentences, metadata, by = "id", all = FALSE)
+
+# compute cluster centroids (one numeric vector per cluster)
+centroids_dt <- sentences[,
+  .(centroid = list(colMeans(do.call(rbind, embedding)))),
+  by = cluster_id
+]
+
+# make a named list for fast lookup
+cent_list <- setNames(
+  centroids_dt$centroid,
+  as.character(centroids_dt$cluster_id)
+)
+
+# cosine similarity between each sentence embedding and its cluster centroid
+similarity_vec <- vapply(
+  seq_len(nrow(sentences)),
+  function(i) {
+    vec <- sentences$embedding[[i]]
+    ctr <- cent_list[[as.character(sentences$cluster_id[i])]]
+    if (is.null(ctr) || any(is.na(vec)) || any(is.na(ctr))) {
+      return(NA_real_)
+    }
+    num <- sum(vec * ctr)
+    denom <- sqrt(sum(vec * vec)) * sqrt(sum(ctr * ctr))
+    if (denom == 0) NA_real_ else num / denom
+  },
+  numeric(1)
+)
+
+sentences[, similarity_centroid := similarity_vec]
+
+# keep ordering and return data.table
+setorder(sentences, id, sentence_id)
 
 # Save cleaned sentences
 write_rds(sentences, here("data_raw", "sentences_cleaned.rds"))
@@ -101,7 +123,15 @@ gc()
 sentences_art <- sentences[
   !is.na(id_wos_matched),
   .N,
-  .(id, cluster_id, HDBSCAN_cluster, window, backbone_community, id_wos_matched)
+  .(
+    id,
+    cluster_id,
+    HDBSCAN_cluster,
+    window,
+    backbone_community,
+    id_wos_matched,
+    url
+  )
 ]
 setnames(sentences_art, "N", "nb_sentence")
 
@@ -112,7 +142,12 @@ refs <- open_dataset(
 ) %>%
   filter(ID_Art %in% unique(sentences_art$id_wos_matched)) %>%
   distinct(ID_Art, ItemID_Ref, Annee, Nom, Revue_Abbrege) %>%
-  collect()
+  collect() %>%
+  rename(
+    year = Annee,
+    name = Nom,
+    journal_abbrev = Revue_Abbrege
+  )
 
 write_rds(sentences_art, here("data_raw", "sentences_art.rds"))
 write_rds(refs, here("data_raw", "references_wos.rds"))

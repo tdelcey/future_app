@@ -20,19 +20,29 @@ metadata <- read_rds(here("data_raw", "metadata_articles.rds"))
 # proportion_hdbscan_cluster
 backbone_network <- read_rds(here("data", "backbone_network.rds"))
 
-setDT(sentences)
-
 # ============================================================
 # 1) TABLE: SENTENCES PER CLUSTER (top sentences etc.)
 # ============================================================
 
 # Keep top sentences per cluster by both representative vector and centroid similarity
-sentences[, rank_rv := frank(-similarity_rv, ties.method = "dense"), by = .(
-  HDBSCAN_cluster, cluster_id, backbone_community, window
-)]
-sentences[, rank_centroid := frank(-similarity_centroid, ties.method = "dense"), by = .(
-  HDBSCAN_cluster, cluster_id, backbone_community, window
-)]
+sentences[,
+  rank_rv := frank(-similarity_rv, ties.method = "dense"),
+  by = .(
+    HDBSCAN_cluster,
+    cluster_id,
+    backbone_community,
+    window
+  )
+]
+sentences[,
+  rank_centroid := frank(-similarity_centroid, ties.method = "dense"),
+  by = .(
+    HDBSCAN_cluster,
+    cluster_id,
+    backbone_community,
+    window
+  )
+]
 
 cluster_sentences <- sentences[
   rank_rv <= 25 | rank_centroid <= 25
@@ -62,6 +72,16 @@ cluster_sentences <- cluster_sentences[,
 
 sentences[, c("rank_rv", "rank_centroid") := NULL]
 
+cluster_sentences[,
+  title := paste0(
+    "<a href='",
+    url,
+    "' target='_blank'>",
+    title,
+    "</a>"
+  )
+]
+
 # FLAG rationality sentences
 cluster_sentences[,
   is_rational := str_detect(
@@ -69,6 +89,7 @@ cluster_sentences[,
     "rational|rationality"
   )
 ]
+
 
 write_rds(
   cluster_sentences,
@@ -94,7 +115,8 @@ top_articles <- sentences[,
     HDBSCAN_cluster,
     cluster_id,
     backbone_community,
-    window
+    window,
+    url
   )
 ]
 
@@ -104,6 +126,16 @@ top_articles <- top_articles[
 ][,
   head(.SD, 20),
   by = .(HDBSCAN_cluster, backbone_community, window)
+]
+
+top_articles[,
+  title := paste0(
+    "<a href='",
+    url,
+    "' target='_blank'>",
+    title,
+    "</a>"
+  )
 ]
 
 write_rds(
@@ -132,9 +164,9 @@ top_refs <- sentences_art %>%
   ) %>%
   reframe(
     absolute_cluster_cit = n(),
-    Nom = first(Nom),
-    Annee = first(Annee),
-    Revue_Abbrege = first(Revue_Abbrege)
+    name = first(name),
+    year = first(year),
+    journal_abbrev = first(journal_abbrev)
   ) %>%
   group_by(backbone_community, HDBSCAN_cluster, window) %>%
   slice_max(order_by = absolute_cluster_cit, n = 15) %>%
@@ -147,18 +179,18 @@ top_refs_noid <- sentences_art %>%
     by = c("id_wos_matched" = "ID_Art"),
     relationship = "many-to-many"
   ) %>%
-  filter(ItemID_Ref == 0 & Nom != "" & Annee != 0) %>%
+  filter(ItemID_Ref == 0 & name != "" & year != 0) %>%
   group_by(
     backbone_community,
     HDBSCAN_cluster,
     cluster_id,
     window,
-    Nom,
-    Annee
+    name,
+    year
   ) %>%
   reframe(
     absolute_cluster_cit = n(),
-    Revue_Abbrege = first(Revue_Abbrege)
+    journal_abbrev = first(journal_abbrev)
   ) %>%
   group_by(backbone_community, HDBSCAN_cluster, window) %>%
   slice_max(order_by = absolute_cluster_cit, n = 15) %>%

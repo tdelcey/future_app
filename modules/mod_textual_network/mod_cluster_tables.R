@@ -182,7 +182,12 @@ mod_cluster_tables_server <- function(
         select(title, journal, authors, year, n_sentences, mean_similarity) %>%
         arrange(desc(n_sentences))
 
-      datatable(df, rownames = FALSE, options = list(dom = "tip"))
+      datatable(
+        df,
+        escape = FALSE,
+        rownames = FALSE,
+        options = list(dom = "tip")
+      )
     })
 
     # References -----------------------------------------------------------

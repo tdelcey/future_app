@@ -11,10 +11,10 @@ p_load(tidyverse, data.table, arrow, ggraph, tidygraph, scico, tidyr)
 # Load data from script 01
 # ------------------------------------------------------------
 sentences <- read_rds(here("data_raw", "sentences_cleaned.rds"))
+sentences_art <- read_rds(here("data_raw", "sentences_art.rds"))
+refs <- read_rds(here("data_raw", "references_wos.rds"))
 backbone_network_raw <- read_rds(here("data_raw", "backbone_network_raw.rds"))
 window_levels <- read_rds(here("data", "window_levels.rds"))
-
-setDT(sentences)
 
 # ------------------------------------------------------------
 # 1. Compute proportions per (HDBSCAN cluster × window)
@@ -41,7 +41,7 @@ tokens <- extract_ngrams(
     cluster_id,
     backbone_community
   )],
-  ngrams = 2L,
+  ngrams = 3L,
   grouping_cols = c(
     "HDBSCAN_cluster",
     "cluster_id",
@@ -65,7 +65,7 @@ tokens_count_hdbscan_cluster <- compute_tf_idf(
 # Labels per decade
 labels_hdbscan_cluster <- tokens_count_hdbscan_cluster[order(-tf_idf)][
   corpus_tf > 20,
-  head(.SD, 5),
+  head(.SD, 4),
   by = .(backbone_community, HDBSCAN_cluster, cluster_id, window)
 ]
 
@@ -141,7 +141,7 @@ top_terms_hdbscan_cluster <- tokens_count_hdbscan_cluster[
 ][
   corpus_tf > 20
 ][,
-  head(.SD, 15),
+  head(.SD, 20),
   by = .(backbone_community, HDBSCAN_cluster, window)
 ]
 
@@ -159,7 +159,6 @@ write_rds(
   tfidf_tables,
   here("data", "tfidf_tables.rds")
 )
-
 
 # ------------------------------------------------------------
 # 3. Build the enriched backbone network
@@ -242,16 +241,20 @@ write_rds(cluster_colors, here("data", "cluster_colors.rds"))
 
 backbone_network <- backbone_network %>%
   activate("edges") %>%
-  rename(weight = oldweight)
+  rename(weight = oldweight) %>%
+  activate("nodes") %>%
+  mutate(size = proportion_hdbscan_cluster) # for repelling in force atlas
 
-
-set.seed(89)
-backbone_network <- vite::complete_forceatlas2(
-  backbone_network,
-  kgrav = 1,
-  first.iter = 10000,
-  overlap.method = "repel",
-  overlap.iter = 2000
-)
+run_force_atlas <- TRUE
+if (run_force_atlas) {
+  set.seed(89)
+  backbone_network <- vite::complete_forceatlas2(
+    backbone_network,
+    kgrav = 10,
+    first.iter = 50000,
+    overlap.method = "repel",
+    overlap.iter = 5000
+  )
+}
 
 write_rds(backbone_network, here("data", "backbone_network.rds"))
