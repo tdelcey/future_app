@@ -46,8 +46,8 @@ mod_cluster_tables_ui <- function(id) {
           "Interpretation",
           "Sentences assigned to this cluster, ranked by semantic proximity. Two metrics of similarity are provided: 
             (1) similarity to the cluster centroid gives the cluster sentences most representative of the cluster as a whole;
-            (2) similarity to the representative vector gives cluster sentences most representative of rationality discussion at this period.
-            You can also filter to only show sentences mentioning 'rational' or 'rationality' (since not all sentences in the cluster may explicitly mention these terms)."
+            (2) similarity to the representative vector gives cluster sentences most representative of future discussion at this period.
+            You can also filter to only show sentences mentioning 'future' or 'futures' (since not all sentences in the cluster may explicitly mention these terms)."
         ),
         prettyRadioButtons(
           inputId = ns("sentence_order_metric"),
@@ -62,7 +62,7 @@ mod_cluster_tables_ui <- function(id) {
         ),
         prettySwitch(
           inputId = ns("rational_only"),
-          label = "Only sentences mentioning 'rational' or 'rationality'",
+          label = "Only sentences mentioning 'future' or 'futures'",
           value = FALSE,
           status = "primary",
           inline = TRUE
@@ -151,7 +151,7 @@ mod_cluster_tables_server <- function(
 
       if (isTRUE(input$rational_only)) {
         df <- df %>%
-          filter(stringr::str_detect(sentence, regex("rational", TRUE)))
+          filter(stringr::str_detect(sentence, regex("future|futures", TRUE)))
       }
 
       order_col <- if (identical(input$sentence_order_metric, "centroid")) {
