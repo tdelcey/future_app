@@ -7,3 +7,4 @@
 
 data_raw/*.rds
 data_raw/*.RDS
+prompt.md

@@ -62,6 +62,7 @@ server <- function(input, output, session) {
   sentences_tbl <- load_data("cluster_sentences")
   top_articles <- load_data("cluster_top_articles")
   top_refs <- load_data("cluster_top_references")
+  top_refs_in_cluster <- load_data("cluster_refs_in_cluster")
   modules_textual_network_server(
     id = "textnet",
     backbone_network = backbone_network,
@@ -72,7 +73,8 @@ server <- function(input, output, session) {
     tfidf_hdbscan = tfidf_hdbscan,
     sentences_tbl = sentences_tbl,
     top_articles = top_articles,
-    top_refs = top_refs
+    top_refs = top_refs,
+    top_refs_in_cluster = top_refs_in_cluster
   )
 }
 

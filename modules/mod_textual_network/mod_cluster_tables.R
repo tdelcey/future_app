@@ -85,7 +85,7 @@ mod_cluster_tables_ui <- function(id) {
         "References",
         callout_box(
           "Interpretation",
-          "Most cited references by articles which have sentences in this cluster. The user can filter to only show references with a known Web of Science ID."
+          "Most cited references by articles which have sentences in this cluster. Use the tab to switch between the original top references list and the subset of references that are themselves part of a semantic cluster."
         ),
         prettySwitch(
           inputId = ns("articles_only"),
@@ -94,7 +94,11 @@ mod_cluster_tables_ui <- function(id) {
           status = "primary",
           inline = TRUE
         ),
-        DTOutput(ns("refs"))
+        tabsetPanel(
+          id = ns("refs_tabs"),
+          tabPanel("Top references", DTOutput(ns("refs"))),
+          tabPanel("References in clusters", DTOutput(ns("refs_in_cluster")))
+        )
       )
     )
   )
@@ -107,7 +111,8 @@ mod_cluster_tables_server <- function(
   tfidf_hdbscan,
   sentences_tbl,
   top_articles,
-  top_refs
+  top_refs,
+  top_refs_in_cluster
 ) {
   moduleServer(id, function(input, output, session) {
     # TF-IDF ---------------------------------------------------------------
@@ -208,6 +213,42 @@ mod_cluster_tables_server <- function(
         select(name, year, journal_abbrev, has_id, absolute_cluster_cit) %>%
         rename(
           title = name,
+          year = year,
+          journal = journal_abbrev,
+          n_citations = absolute_cluster_cit
+        ) %>%
+        arrange(desc(n_citations))
+
+      if (isTRUE(input$articles_only)) {
+        df <- df %>%
+          filter(has_id)
+      }
+
+      df <- df %>%
+        select(-has_id)
+
+      datatable(df, rownames = FALSE, options = list(dom = "tip")) %>%
+        DT::formatStyle(columns = names(df), fontSize = '11px')
+    })
+
+    output$refs_in_cluster <- DT::renderDT({
+      cid <- selected_cluster()
+      if (is.null(cid)) {
+        return(NULL)
+      }
+      df <- top_refs_in_cluster %>%
+        filter(cluster_id == cid, ref_in_cluster) %>%
+        select(
+          name,
+          ref_cluster_name,
+          year,
+          journal_abbrev,
+          has_id,
+          absolute_cluster_cit
+        ) %>%
+        rename(
+          title = name,
+          cluster_name = ref_cluster_name,
           year = year,
           journal = journal_abbrev,
           n_citations = absolute_cluster_cit

@@ -19,7 +19,8 @@ modules_textual_network_server <- function(
   tfidf_hdbscan,
   sentences_tbl,
   top_articles,
-  top_refs
+  top_refs,
+  top_refs_in_cluster
 ) {
   moduleServer(id, function(input, output, session) {
     selected_cluster <- mod_network_view_server(
@@ -37,7 +38,8 @@ modules_textual_network_server <- function(
       tfidf_hdbscan,
       sentences_tbl,
       top_articles,
-      top_refs
+      top_refs,
+      top_refs_in_cluster
     )
   })
 }

@@ -147,8 +147,29 @@ write_rds(
 # 3) TABLE: MOST CITED REFERENCES
 # ============================================================
 
+# References are part of clusters when their WOS ID matches an article
+# in the clustered sentences dataset.
+
+cluster_labels <- backbone_network %>%
+  tidygraph::activate("nodes") %>%
+  as_tibble() %>%
+  select(cluster_id, label_hdbscan_cluster)
+
+cluster_name_lookup <- sentences_art %>%
+  distinct(id_wos_matched, cluster_id) %>%
+  mutate(id_wos_matched = as.integer(id_wos_matched)) %>%
+  left_join(cluster_labels, by = "cluster_id") %>%
+  group_by(id_wos_matched) %>%
+  summarise(
+    ref_cluster_name = paste(
+      sort(unique(label_hdbscan_cluster)),
+      collapse = " | "
+    ),
+    .groups = "drop"
+  )
+
 # --- WITH stable ID ---
-top_refs <- sentences_art %>%
+refs_with_id <- sentences_art %>%
   left_join(
     refs,
     by = c("id_wos_matched" = "ID_Art"),
@@ -168,12 +189,20 @@ top_refs <- sentences_art %>%
     year = first(year),
     journal_abbrev = first(journal_abbrev)
   ) %>%
-  group_by(backbone_community, HDBSCAN_cluster, window) %>%
-  slice_max(order_by = absolute_cluster_cit, n = 15) %>%
+  mutate(ItemID_Ref = as.integer(ItemID_Ref)) %>%
+  left_join(
+    cluster_name_lookup,
+    by = c("ItemID_Ref" = "id_wos_matched")
+  ) %>%
+  mutate(
+    ref_in_cluster = !is.na(ref_cluster_name),
+    ref_cluster_name = replace_na(ref_cluster_name, "")
+  ) %>%
   ungroup()
 
+
 # --- WITHOUT stable ID ---
-top_refs_noid <- sentences_art %>%
+refs_no_id <- sentences_art %>%
   left_join(
     refs,
     by = c("id_wos_matched" = "ID_Art"),
@@ -192,19 +221,36 @@ top_refs_noid <- sentences_art %>%
     absolute_cluster_cit = n(),
     journal_abbrev = first(journal_abbrev)
   ) %>%
-  group_by(backbone_community, HDBSCAN_cluster, window) %>%
-  slice_max(order_by = absolute_cluster_cit, n = 15) %>%
+  mutate(
+    ref_in_cluster = FALSE,
+    ref_cluster_name = ""
+  ) %>%
   ungroup()
 
 # Merge
-cluster_top_refs <- bind_rows(
-  mutate(top_refs, has_id = TRUE),
-  mutate(top_refs_noid, has_id = FALSE)
+cluster_refs_all <- bind_rows(
+  mutate(refs_with_id, has_id = TRUE),
+  mutate(refs_no_id, has_id = FALSE)
 )
+
+# Top 20 references per cluster for UI
+cluster_top_refs <- cluster_refs_all %>%
+  group_by(backbone_community, HDBSCAN_cluster, window) %>%
+  slice_max(order_by = absolute_cluster_cit, n = 20) %>%
+  ungroup()
+
+# All references that are themselves part of a cluster
+cluster_refs_in_cluster <- cluster_refs_all %>%
+  filter(ref_in_cluster)
 
 write_rds(
   cluster_top_refs,
   here("data", "cluster_top_references.rds")
+)
+
+write_rds(
+  cluster_refs_in_cluster,
+  here("data", "cluster_refs_in_cluster.rds")
 )
 
 # ============================================================
