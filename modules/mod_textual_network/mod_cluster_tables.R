@@ -75,7 +75,20 @@ mod_cluster_tables_ui <- function(id) {
         "Top articles",
         callout_box(
           "Interpretation",
-          "Articles with the most sentences in this cluster."
+          "Switch between top articles by sentence count and by proximity to the cluster centroid. 
+          Sentence count highlights articles with the most sentences in the cluster, 
+          while cluster centroid is the mean similarity of all sentences in the article to the cluster centroid."
+        ),
+        prettyRadioButtons(
+          inputId = ns("articles_rank_metric"),
+          label = "Rank articles by",
+          choices = c(
+            "Sentence count" = "count",
+            "Centroid proximity" = "proximity"
+          ),
+          selected = "count",
+          inline = TRUE,
+          status = "primary"
         ),
         DTOutput(ns("articles"))
       ),
@@ -110,7 +123,8 @@ mod_cluster_tables_server <- function(
   selected_cluster,
   tfidf_hdbscan,
   sentences_tbl,
-  top_articles,
+  top_articles_by_count,
+  top_articles_by_proximity,
   top_refs,
   top_refs_in_cluster
 ) {
@@ -187,11 +201,31 @@ mod_cluster_tables_server <- function(
       if (is.null(cid)) {
         return(NULL)
       }
-      df <- top_articles %>%
+      df_src <- if (identical(input$articles_rank_metric, "proximity")) {
+        top_articles_by_proximity
+      } else {
+        top_articles_by_count
+      }
+
+      df <- df_src %>%
         filter(cluster_id == cid) %>%
-        select(title, journal, authors, year, n_sentences, mean_similarity) %>%
-        mutate(mean_similarity = round(mean_similarity, 2)) %>%
-        arrange(desc(n_sentences))
+        select(
+          title,
+          journal,
+          authors,
+          year,
+          n_sentences,
+          similarity_article_cluster
+        ) %>%
+        mutate(
+          similarity_article_cluster = round(similarity_article_cluster, 2)
+        )
+
+      df <- if (identical(input$articles_rank_metric, "proximity")) {
+        df %>% arrange(desc(similarity_article_cluster))
+      } else {
+        df %>% arrange(desc(n_sentences))
+      }
 
       datatable(
         df,

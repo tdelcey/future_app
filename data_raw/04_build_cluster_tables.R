@@ -13,6 +13,7 @@ sentences <- read_rds(here("data_raw", "sentences_cleaned.rds"))
 sentences_art <- read_rds(here("data_raw", "sentences_art.rds"))
 refs <- read_rds(here("data_raw", "references_wos.rds"))
 metadata <- read_rds(here("data_raw", "metadata_articles.rds"))
+article_centroids <- read_rds(here("data_raw", "article_centroids.rds"))
 
 # backbone_network already contains:
 # cluster_id, HDBSCAN_cluster, backbone_community,
@@ -100,11 +101,25 @@ write_rds(
 # 2) TABLE: TOP ARTICLES PER CLUSTER
 # ============================================================
 
+# Compute cluster centroids (one numeric vector per cluster)
+cluster_centroids <- sentences[,
+  .(cluster_centroid = list(colMeans(do.call(rbind, embedding)))),
+  by = cluster_id
+]
+
+cosine_similarity <- function(a, b) {
+  if (is.null(a) || is.null(b) || any(is.na(a)) || any(is.na(b))) {
+    return(NA_real_)
+  }
+  num <- sum(a * b)
+  denom <- sqrt(sum(a * a)) * sqrt(sum(b * b))
+  if (denom == 0) NA_real_ else num / denom
+}
+
 # Count sentences per article × cluster
 top_articles <- sentences[,
   .(
-    n_sentences = .N,
-    mean_similarity = mean(similarity_rv, na.rm = TRUE)
+    n_sentences = .N
   ),
   by = .(
     id,
@@ -120,15 +135,52 @@ top_articles <- sentences[,
   )
 ]
 
-# Keep only top 20 per cluster
-top_articles <- top_articles[
+# Add article/cluster centroid similarity
+top_articles <- top_articles %>%
+  left_join(cluster_centroids, by = "cluster_id") %>%
+  left_join(article_centroids, by = "id") %>%
+  mutate(
+    similarity_article_cluster = mapply(
+      cosine_similarity,
+      centroid,
+      cluster_centroid
+    )
+  ) %>%
+  select(-centroid, -cluster_centroid)
+
+# Keep only top 20 per cluster by sentence count
+top_articles_by_count <- top_articles[
   order(backbone_community, HDBSCAN_cluster, cluster_id, window, -n_sentences)
 ][,
   head(.SD, 20),
   by = .(HDBSCAN_cluster, backbone_community, window)
 ]
 
-top_articles[,
+# Keep only top 20 per cluster by centroid proximity
+top_articles_by_proximity <- top_articles[
+  order(
+    backbone_community,
+    HDBSCAN_cluster,
+    cluster_id,
+    window,
+    -similarity_article_cluster
+  )
+][,
+  head(.SD, 20),
+  by = .(HDBSCAN_cluster, backbone_community, window)
+]
+
+top_articles_by_count[,
+  title := paste0(
+    "<a href='",
+    url,
+    "' target='_blank'>",
+    title,
+    "</a>"
+  )
+]
+
+top_articles_by_proximity[,
   title := paste0(
     "<a href='",
     url,
@@ -139,8 +191,13 @@ top_articles[,
 ]
 
 write_rds(
-  top_articles,
-  here("data", "cluster_top_articles.rds")
+  top_articles_by_count,
+  here("data", "cluster_top_articles_by_count.rds")
+)
+
+write_rds(
+  top_articles_by_proximity,
+  here("data", "cluster_top_articles_by_proximity.rds")
 )
 
 # ============================================================

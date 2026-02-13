@@ -18,7 +18,8 @@ modules_textual_network_server <- function(
   window_levels,
   tfidf_hdbscan,
   sentences_tbl,
-  top_articles,
+  top_articles_by_count,
+  top_articles_by_proximity,
   top_refs,
   top_refs_in_cluster
 ) {
@@ -37,7 +38,8 @@ modules_textual_network_server <- function(
       selected_cluster,
       tfidf_hdbscan,
       sentences_tbl,
-      top_articles,
+      top_articles_by_count,
+      top_articles_by_proximity,
       top_refs,
       top_refs_in_cluster
     )

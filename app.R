@@ -60,7 +60,8 @@ server <- function(input, output, session) {
   # tables pour les DT
   tfidf_hdbscan <- load_data("tfidf_tables")$top_terms_hdbscan_cluster
   sentences_tbl <- load_data("cluster_sentences")
-  top_articles <- load_data("cluster_top_articles")
+  top_articles_by_count <- load_data("cluster_top_articles_by_count")
+  top_articles_by_proximity <- load_data("cluster_top_articles_by_proximity")
   top_refs <- load_data("cluster_top_references")
   top_refs_in_cluster <- load_data("cluster_refs_in_cluster")
   modules_textual_network_server(
@@ -72,7 +73,8 @@ server <- function(input, output, session) {
     window_levels = window_levels,
     tfidf_hdbscan = tfidf_hdbscan,
     sentences_tbl = sentences_tbl,
-    top_articles = top_articles,
+    top_articles_by_count = top_articles_by_count,
+    top_articles_by_proximity = top_articles_by_proximity,
     top_refs = top_refs,
     top_refs_in_cluster = top_refs_in_cluster
   )
